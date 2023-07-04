@@ -90,6 +90,7 @@ def _get_builtin_metadata():
 
 _PREDEFINED_SPLITS_OBJECTS365 = {
     "ovd360_train": ("ovd360/train", "ovd360/train_eng.json"),
+    "ovd360_train_mosaic": ("ovd360/train", "ovd360/train_eng_mosaic.json"),
     "ovd360_test": ("ovd360/test", "ovd360/test_eng.json"),
 }
 

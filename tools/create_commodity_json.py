@@ -9,9 +9,9 @@ from glob import glob
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--image_path', default=r'G:\BaiduNetdiskDownload\crawled_images')
-    parser.add_argument('--json_path', default=r"G:\BaiduNetdiskDownload\json_pre_contest\json_pre_contest\test_eng.json")
-    parser.add_argument('--out_path', default=r"G:\BaiduNetdiskDownload\json_pre_contest\json_pre_contest\crawled_images.json")
+    parser.add_argument('--image_path', default="datasets/ovd360/crawled_images_large")
+    parser.add_argument('--json_path', default=r"datasets/ovd360/test_eng.json")
+    parser.add_argument('--out_path', default=r"datasets/ovd360/crawled_images_large.json")
     args = parser.parse_args()
 
     print('Loading LVIS meta')

@@ -92,11 +92,11 @@ def get_images_from_baidu(keyword, page_num, save_dir):
 
 
 if __name__ == '__main__':
-    json_path = r"G:\BaiduNetdiskDownload\json_pre_contest\json_pre_contest\test_eng.json"
+    json_path = r"datasets/ovd360/test_eng.json"
     with open(json_path, 'r') as f:
         json_content = json.load(f)
     categories = json_content['categories']
-    save_root = r'G:\BaiduNetdiskDownload\crawled_images_large'
+    save_root = r'datasets/ovd360/crawled_images_large'
     os.makedirs(save_root, exist_ok=True)
     for cat in categories:
         cat_id = cat['id']

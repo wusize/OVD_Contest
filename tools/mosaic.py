@@ -1,3 +1,4 @@
+import os
 from typing import List, Optional, Sequence, Tuple, Union
 from numpy import random
 import mmcv
@@ -5,29 +6,162 @@ import numpy as np
 import copy
 import json
 from pycocotools.coco import COCO
+from tqdm import tqdm
 
 
-class Mosaic:
+def find_inside_bboxes(bboxes, img_h, img_w):
+    """Find bboxes as long as a part of bboxes is inside the image.
+
+    Args:
+        bboxes (Tensor): Shape (N, 4).
+        img_h (int): Image height.
+        img_w (int): Image width.
+
+    Returns:
+        Tensor: Index of the remaining bboxes.
+    """
+    inside_inds = (bboxes[:, 0] < img_w) & (bboxes[:, 2] > 0) \
+        & (bboxes[:, 1] < img_h) & (bboxes[:, 3] > 0)
+    return inside_inds
+
+
+class DataAugmentation:
     def __init__(self,
                  image_root,
                  json_file,
-                 num_rounds,
-                 num_copies,
-                 img_scale: Tuple[int, int] = (640, 640),
-                 center_ratio_range: Tuple[float, float] = (0.5, 1.5),
+                 num_rounds=8,
+                 num_copies=2,
+                 img_scale: Tuple[int, int] = (448, 448),
+                 center_ratio_range: Tuple[float, float] = (1.0, 1.0),
                  bbox_clip_border: bool = True,
                  pad_val: float = 114.0) -> None:
         assert isinstance(img_scale, tuple)
         self.image_root = image_root
+        self.json_file = json_file
         self.data = COCO(json_file)
         image_ids = list(self.data.imgs.keys())
-        self.start_id = max(image_ids) + 1
+        self.image_start_id = max(image_ids) + 1
+        ann_ids = list(self.data.anns.keys())
+        self.annotation_start_id = max(ann_ids) + 1
         self.img_scale = img_scale
         self.center_ratio_range = center_ratio_range
         self.bbox_clip_border = bbox_clip_border
         self.pad_val = pad_val
         self.num_copies = num_copies
         self.num_rounds = num_rounds
+
+        os.makedirs(os.path.join(image_root, "mosaic"), exist_ok=True)
+
+
+    def copy(self):
+        add_imgs = dict()
+        add_img2anns = dict()
+
+        for img_id, anns in tqdm(self.data.imgToAnns.items()):
+            img_info = copy.deepcopy(self.data.imgs[img_id])
+            img_info.update(id=self.image_start_id)
+            add_imgs[self.image_start_id] = img_info
+
+            add_anns = []
+            for ann in anns:
+                add_ann = copy.deepcopy(ann)
+                add_ann.update(image_id=self.image_start_id,
+                               id=self.annotation_start_id)
+                add_anns.append(add_ann)
+                self.annotation_start_id += 1
+
+            add_img2anns[self.image_start_id] = add_anns
+            self.image_start_id += 1
+        add_anns_list = []
+        for add_anns in add_img2anns.values():
+            add_anns_list += add_anns
+        return list(add_imgs.values()), add_anns_list
+
+    def mosaic(self):
+        image_ids = list(self.data.imgs.keys())
+        num_mosaics = len(image_ids) // 4
+        random.shuffle(image_ids)
+
+        add_anns = []
+        add_images = []
+
+        for i in tqdm(range(num_mosaics)):
+            results = self.coco2mmdet(image_ids[i * 4])
+            mix_results = [self.coco2mmdet(image_ids[i * 4 + 1]),
+                           self.coco2mmdet(image_ids[i * 4 + 2]),
+                           self.coco2mmdet(image_ids[i * 4 + 3])]
+            results.update(mix_results=mix_results)
+
+            results = self.transform(results)
+
+            img = results['img']
+            height, width = img.shape[:2]
+            add_images.append(dict(id=self.image_start_id,
+                                   file_name=f"mosaic/{self.image_start_id}.jpg",
+                                   height=height, width=width
+                                   ))
+            mmcv.imwrite(img, os.path.join(self.image_root, f"mosaic/{self.image_start_id}.jpg"))
+
+            gt_bboxes = results['gt_bboxes']
+            gt_bboxes_labels = results['gt_bboxes_labels']
+            gt_bboxes[:, 2:] = gt_bboxes[:, 2:] - gt_bboxes[:, :2]
+
+
+            for gt_bbox, gt_bbox_label in zip(gt_bboxes, gt_bboxes_labels):
+                x, y, w, h = gt_bbox.tolist()
+                add_anns.append(dict(id=self.annotation_start_id,
+                                     bbox=[x,y,w,h],
+                                     category_id=int(gt_bbox_label),
+                                     image_id=self.image_start_id,
+                                     area=w * h,
+                                     iscrowd=0))
+                self.annotation_start_id += 1
+
+            self.image_start_id += 1
+
+        return add_images, add_anns
+
+
+    def offline_aug(self):
+        images = list(self.data.imgs.values())
+        annotations = list(self.data.anns.values())
+
+        for _ in range(self.num_copies):
+            copied_images, copied_anns = self.copy()
+            images += copied_images
+            annotations += copied_anns
+
+        for _ in range(self.num_rounds):
+            mosaic_images, mosaic_anns = self.mosaic()
+            images += mosaic_images
+            annotations += mosaic_anns
+
+        with open(self.json_file.replace('.json', '_mosaic.json'), "w") as f:
+            json.dump(dict(images=images,
+                           annotations=annotations, categories=list(self.data.cats.values())), f)
+
+    def coco2mmdet(self, image_id):
+        anns = self.data.imgToAnns[image_id]
+        img_info = self.data.imgs[image_id]
+        image_path = os.path.join(self.image_root, img_info['file_name'])
+
+        img = mmcv.imread(image_path)
+        results = dict(img=img)
+        gt_bboxes = []
+        gt_bboxes_labels = []
+        for ann in anns:
+            x, y, w, h = ann['bbox']
+            category_id = ann['category_id']
+
+            gt_bboxes.append([x, y, x + w, y + h])
+            gt_bboxes_labels.append(category_id)
+
+        gt_bboxes = np.array(gt_bboxes, dtype=np.float32)
+        gt_bboxes_labels = np.array(gt_bboxes_labels)
+
+        results.update(gt_bboxes=gt_bboxes,
+                       gt_bboxes_labels=gt_bboxes_labels)
+        return results
 
     def transform(self, results: dict) -> dict:
         """Mosaic transform function.
@@ -87,28 +221,35 @@ class Mosaic:
             # adjust coordinate
             gt_bboxes_i = results_patch['gt_bboxes']
             gt_bboxes_labels_i = results_patch['gt_bboxes_labels']
-            gt_ignore_flags_i = results_patch['gt_ignore_flags']
 
             padw = x1_p - x1_c
             padh = y1_p - y1_c
-            gt_bboxes_i.rescale_([scale_ratio_i, scale_ratio_i])
-            gt_bboxes_i.translate_([padw, padh])
+
+            if gt_bboxes_i.shape[0] > 0:
+                gt_bboxes_i[:, 0::2] = \
+                    scale_ratio_i * gt_bboxes_i[:, 0::2] + padw
+                gt_bboxes_i[:, 1::2] = \
+                    scale_ratio_i * gt_bboxes_i[:, 1::2] + padh
+
             mosaic_bboxes.append(gt_bboxes_i)
             mosaic_bboxes_labels.append(gt_bboxes_labels_i)
 
-        mosaic_bboxes = mosaic_bboxes[0].cat(mosaic_bboxes, 0)
+        mosaic_bboxes =np.concatenate(mosaic_bboxes, 0)
         mosaic_bboxes_labels = np.concatenate(mosaic_bboxes_labels, 0)
 
         if self.bbox_clip_border:
-            mosaic_bboxes.clip_([2 * self.img_scale[1], 2 * self.img_scale[0]])
-        # remove outside bboxes
-        inside_inds = mosaic_bboxes.is_inside(
-            [2 * self.img_scale[1], 2 * self.img_scale[0]]).numpy()
+            mosaic_bboxes[:, 0::2] = np.clip(mosaic_bboxes[:, 0::2], 0,
+                                             2 * self.img_scale[1])
+            mosaic_bboxes[:, 1::2] = np.clip(mosaic_bboxes[:, 1::2], 0,
+                                             2 * self.img_scale[0])
+
+        inside_inds = find_inside_bboxes(mosaic_bboxes, 2 * self.img_scale[0],
+                                         2 * self.img_scale[1])
+
         mosaic_bboxes = mosaic_bboxes[inside_inds]
         mosaic_bboxes_labels = mosaic_bboxes_labels[inside_inds]
 
         results['img'] = mosaic_img
-        results['img_shape'] = mosaic_img.shape
         results['gt_bboxes'] = mosaic_bboxes
         results['gt_bboxes_labels'] = mosaic_bboxes_labels
         return results
@@ -175,3 +316,9 @@ class Mosaic:
 
         paste_coord = x1, y1, x2, y2
         return paste_coord, crop_coord
+
+
+if __name__ == "__main__":
+    data_aug = DataAugmentation(image_root="datasets/ovd360/data_pre_contest/data_pre_contest/train",
+                                json_file="datasets/ovd360/train_eng.json")
+    data_aug.offline_aug()
