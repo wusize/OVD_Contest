@@ -3,6 +3,9 @@ import torch
 import json
 import numpy as np
 from torch.nn import functional as F
+from functools import partial
+from six.moves import map, zip
+
 
 def load_class_freq(
     path='datasets/metadata/lvis_v1_train_cat_info.json', freq_weight=1.0):
@@ -47,3 +50,24 @@ def reset_cls_test(model, cls_path, num_classes):
     for k in range(len(model.roi_heads.box_predictor)):
         del model.roi_heads.box_predictor[k].cls_score.zs_weight
         model.roi_heads.box_predictor[k].cls_score.zs_weight = zs_weight
+
+def multi_apply(func, *args, **kwargs):
+    """Apply function to a list of arguments.
+
+    Note:
+        This function applies the ``func`` to multiple inputs and
+        map the multiple outputs of the ``func`` into different
+        list. Each list contains the same type of outputs corresponding
+        to different inputs.
+
+    Args:
+        func (Function): A function that will be applied to a list of
+            arguments
+
+    Returns:
+        tuple(list): A tuple containing multiple list, each list contains \
+            a kind of returned results by the function
+    """
+    pfunc = partial(func, **kwargs) if kwargs else func
+    map_results = map(pfunc, *args)
+    return tuple(map(list, zip(*map_results)))
