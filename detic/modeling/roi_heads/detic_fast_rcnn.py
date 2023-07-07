@@ -22,6 +22,7 @@ from detectron2.modeling.roi_heads.fast_rcnn import _log_classification_stats
 from torch.cuda.amp import autocast
 from ..utils import load_class_freq, get_fed_loss_inds
 from .zero_shot_classifier import ZeroShotClassifier
+from .prompt_classifier import PromptClassifier
 
 __all__ = ["DeticFastRCNNOutputLayers"]
 
@@ -149,9 +150,13 @@ class DeticFastRCNNOutputLayers(FastRCNNOutputLayers):
             'cat_freq_path': cfg.MODEL.ROI_BOX_HEAD.CAT_FREQ_PATH,
             'fed_loss_freq_weight': cfg.MODEL.ROI_BOX_HEAD.FED_LOSS_FREQ_WEIGHT,
             'softmax_weak_loss': cfg.MODEL.ROI_BOX_HEAD.SOFTMAX_WEAK_LOSS,
+            "use_prompt": cfg.MODEL.ROI_BOX_HEAD.USE_PROMPT,
         })
         if ret['use_zeroshot_cls']:
-            ret['cls_score'] = ZeroShotClassifier(cfg, input_shape)
+            if ret['use_prompt']:
+                ret['cls_score'] = PromptClassifier(cfg, input_shape)
+            else:
+                ret['cls_score'] = ZeroShotClassifier(cfg, input_shape)
         return ret
 
     def losses(self, predictions, proposals, \

@@ -130,3 +130,10 @@ def add_detic_config(cfg):
     _C.EVAL_AP_FIX = False
     _C.GEN_PSEDO_LABELS = False
     _C.SAVE_DEBUG_PATH = 'output/save_debug/'
+
+    _C.MODEL.ROI_BOX_HEAD.USE_PROMPT = False
+     # clip
+    _C.MODEL.CLIP = CN()
+    _C.MODEL.CLIP.NAME = 'ViT-B/32'
+    _C.MODEL.CLIP.WORD_DIM = 512
+    _C.MODEL.CLIP.PROMPT_LEN = 4
