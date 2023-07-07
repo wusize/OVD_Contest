@@ -150,10 +150,10 @@ class DeticFastRCNNOutputLayers(FastRCNNOutputLayers):
             'cat_freq_path': cfg.MODEL.ROI_BOX_HEAD.CAT_FREQ_PATH,
             'fed_loss_freq_weight': cfg.MODEL.ROI_BOX_HEAD.FED_LOSS_FREQ_WEIGHT,
             'softmax_weak_loss': cfg.MODEL.ROI_BOX_HEAD.SOFTMAX_WEAK_LOSS,
-            "use_prompt": cfg.MODEL.ROI_BOX_HEAD.USE_PROMPT,
+            # "use_prompt": cfg.MODEL.ROI_BOX_HEAD.USE_PROMPT,
         })
         if ret['use_zeroshot_cls']:
-            if ret['use_prompt']:
+            if cfg.MODEL.ROI_BOX_HEAD.USE_PROMPT:
                 ret['cls_score'] = PromptClassifier(cfg, input_shape)
             else:
                 ret['cls_score'] = ZeroShotClassifier(cfg, input_shape)
