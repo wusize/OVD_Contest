@@ -67,7 +67,7 @@ class PromptClassifier(nn.Module):
 
     @property
     def class_embeddings(self):
-        cls = self.clip.encode_text_with_prompt(self.tokens, prompt=self.prompt_embeddings, normalize=True)
+        cls = self.clip.encode_text_with_prompt(self.tokens, prompt=self.prompt_embeddings, normalize=True).float()
         bg = torch.zeros_like(cls[:1])
         return torch.cat([cls, bg], dim=0)
 
