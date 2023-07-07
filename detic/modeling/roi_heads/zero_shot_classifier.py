@@ -82,6 +82,6 @@ class ZeroShotClassifier(nn.Module):
         if self.norm_weight:
             x = self.norm_temperature * F.normalize(x, p=2, dim=1)
         x = torch.mm(x, zs_weight)
-        if self.use_bias:
+        if self.use_bias and self.training:
             x = x + self.cls_bias
         return x
