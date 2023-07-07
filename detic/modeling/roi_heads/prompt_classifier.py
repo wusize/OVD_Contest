@@ -45,7 +45,7 @@ class PromptClassifier(nn.Module):
                      sorted(categories, key=lambda x: x['id'])]
         tokens = CLIP.tokenize_dynamic(cat_names, truncate=True)
         self.register_buffer('tokens', tokens)
-        self.prompt_embeddings = nn.Parameter(torch.zeros(num_classes, prompt_length, clip_cfg.WORD_DIM))
+        self.prompt_embeddings = nn.Parameter(torch.zeros(num_classes, self.prompt_length, clip_cfg.WORD_DIM))
 
         self.clip, self.clip_preprocess = CLIP.load(name=clip_cfg.NAME,
                                                     use_image_encoder=False,
