@@ -31,6 +31,8 @@ class PromptClassifier(nn.Module):
         self.norm_temperature = norm_temperature
 
         self.prompt_length = clip_cfg.PROMPT_LEN
+        self.prompt_cls_agnostic = clip_cfg.CLASS_AGNOSTIC
+        self.num_classes = num_classes
 
         self.use_bias = use_bias < 0
         if self.use_bias:
@@ -45,7 +47,10 @@ class PromptClassifier(nn.Module):
                      sorted(categories, key=lambda x: x['id'])]
         tokens = CLIP.tokenize_dynamic(cat_names, truncate=True)
         self.register_buffer('tokens', tokens)
-        self.prompt_embeddings = nn.Parameter(torch.zeros(num_classes, self.prompt_length, clip_cfg.WORD_DIM))
+        if self.prompt_cls_agnostic:
+            self.prompt_embeddings = nn.Parameter(torch.zeros(1, self.prompt_length, clip_cfg.WORD_DIM))
+        else:
+            self.prompt_embeddings = nn.Parameter(torch.zeros(num_classes, self.prompt_length, clip_cfg.WORD_DIM))
 
         self.clip, self.clip_preprocess = CLIP.load(name=clip_cfg.NAME,
                                                     use_image_encoder=False,
@@ -67,10 +72,15 @@ class PromptClassifier(nn.Module):
 
     @property
     def class_embeddings(self):
-        cls = self.clip.encode_text_with_prompt(self.tokens, prompt=self.prompt_embeddings, normalize=True).float()
+        if self.prompt_cls_agnostic:
+            assert self.prompt_embeddings.shape[0] == 1
+            prompt_embeddings = self.prompt_embeddings.repeat(self.num_classes, 1, 1)
+        else:
+            assert self.prompt_embeddings.shape[0] == self.num_classes
+            prompt_embeddings = self.prompt_embeddings
+        cls = self.clip.encode_text_with_prompt(self.tokens, prompt=prompt_embeddings, normalize=True).float()
         bg = torch.zeros_like(cls[:1])
         return torch.cat([cls, bg], dim=0)
-
 
     def forward(self, x, classifier=None):
         '''
