@@ -431,7 +431,7 @@ class DeticFastRCNNOutputLayers(FastRCNNOutputLayers):
             'loss_box_reg': score.new_zeros([1])[0]}
 
 
-    def forward(self, x, classifier_info=(None,None,None)):
+    def forward(self, x, classifier_info=(None,None,None), ann_type='box'):
         """
         enable classifier_info
         """
@@ -439,21 +439,10 @@ class DeticFastRCNNOutputLayers(FastRCNNOutputLayers):
             x = torch.flatten(x, start_dim=1)
         scores = []
    
-        if classifier_info[0] is not None:
-            cls_scores = self.cls_score(x, classifier=classifier_info[0])
-            scores.append(cls_scores)
-        else:
-            cls_scores = self.cls_score(x)
-            scores.append(cls_scores)
+        cls_scores = self.cls_score(x, detach=(ann_type == 'box'))
+        scores.append(cls_scores)
 
-        if classifier_info[2] is not None:
-            cap_cls = classifier_info[2]
-            if self.sync_caption_batch:
-                caption_scores = self.cls_score(x, classifier=cap_cls[:, :-1]) 
-            else:
-                caption_scores = self.cls_score(x, classifier=cap_cls)
-            scores.append(caption_scores)
-        scores = torch.cat(scores, dim=1) # B x C' or B x N or B x (C'+N)
+        scores = torch.cat(scores, dim=1)  # B x C' or B x N or B x (C'+N)
 
         proposal_deltas = self.bbox_pred(x)
         if self.with_softmax_prop:

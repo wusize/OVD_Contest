@@ -109,8 +109,8 @@ class DeticCascadeROIHeads(CascadeROIHeads):
                 if self.training and ann_type in ['box']:
                     proposals = self._match_and_label_boxes(
                         proposals, k, targets)
-            predictions = self._run_stage(features, proposals, k, 
-                classifier_info=classifier_info)
+            predictions = self._run_stage(features, proposals, k,
+                                          classifier_info=classifier_info, ann_type=ann_type)
             prev_pred_boxes = self.box_predictor[k].predict_boxes(
                 (predictions[0], predictions[1]), proposals)
             head_outputs.append((self.box_predictor[k], predictions, proposals))
@@ -253,7 +253,7 @@ class DeticCascadeROIHeads(CascadeROIHeads):
 
 
     def _run_stage(self, features, proposals, stage, \
-        classifier_info=(None,None,None)):
+        classifier_info=(None,None,None), ann_type='box'):
         """
         Support classifier_info and add_feature_to_prop
         """
@@ -268,4 +268,4 @@ class DeticCascadeROIHeads(CascadeROIHeads):
                 p.feat = feat
         return self.box_predictor[stage](
             box_features, 
-            classifier_info=classifier_info)
+            classifier_info=classifier_info, ann_type=ann_type)

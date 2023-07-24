@@ -66,7 +66,7 @@ class ZeroShotClassifier(nn.Module):
             'norm_temperature': cfg.MODEL.ROI_BOX_HEAD.NORM_TEMP,
         }
 
-    def forward(self, x, classifier=None):
+    def forward(self, x, classifier=None, **kwargs):
         '''
         Inputs:
             x: B x D'

@@ -82,7 +82,7 @@ class PromptClassifier(nn.Module):
         bg = torch.zeros_like(cls[:1])
         return torch.cat([cls, bg], dim=0)
 
-    def forward(self, x, classifier=None):
+    def forward(self, x, classifier=None, detach=False):
         '''
         Inputs:
             x: B x D'
@@ -91,6 +91,8 @@ class PromptClassifier(nn.Module):
         x = self.linear(x)
         assert classifier is None
         zs_weight = self.class_embeddings.T
+        if detach:
+            zs_weight = zs_weight.detach()
         x = self.norm_temperature * F.normalize(x, p=2, dim=1)
         x = torch.mm(x, zs_weight)
         if self.use_bias:
