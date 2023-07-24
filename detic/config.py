@@ -138,3 +138,4 @@ def add_detic_config(cfg):
     _C.MODEL.CLIP.WORD_DIM = 512
     _C.MODEL.CLIP.PROMPT_LEN = 4
     _C.MODEL.CLIP.CLASS_AGNOSTIC = False
+    _C.MODEL.CLIP.DETACH = False

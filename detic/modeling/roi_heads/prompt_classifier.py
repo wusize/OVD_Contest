@@ -39,6 +39,7 @@ class PromptClassifier(nn.Module):
             self.cls_bias = nn.Parameter(torch.ones(1) * use_bias)
 
         self.linear = nn.Linear(input_size, zs_weight_dim)
+        self.detach = clip_cfg.DETACH
 
         # Load category names
         with open(zs_weight_path, 'r') as f:
@@ -91,7 +92,7 @@ class PromptClassifier(nn.Module):
         x = self.linear(x)
         assert classifier is None
         zs_weight = self.class_embeddings.T
-        if detach:
+        if detach and self.detach:
             zs_weight = zs_weight.detach()
         x = self.norm_temperature * F.normalize(x, p=2, dim=1)
         x = torch.mm(x, zs_weight)
