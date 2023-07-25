@@ -49,9 +49,11 @@ class PromptClassifier(nn.Module):
         tokens = CLIP.tokenize_dynamic(cat_names, truncate=True)
         self.register_buffer('tokens', tokens)
         if self.prompt_cls_agnostic:
-            self.prompt_embeddings = nn.Parameter(torch.zeros(1, self.prompt_length, clip_cfg.WORD_DIM))
+            self.prompt_embeddings = nn.Parameter(
+                torch.randn(1, self.prompt_length, clip_cfg.WORD_DIM) * 0.02)
         else:
-            self.prompt_embeddings = nn.Parameter(torch.zeros(num_classes, self.prompt_length, clip_cfg.WORD_DIM))
+            self.prompt_embeddings = nn.Parameter(
+                torch.randn(num_classes, self.prompt_length, clip_cfg.WORD_DIM) * 0.02)
 
         self.clip, self.clip_preprocess = CLIP.load(name=clip_cfg.NAME,
                                                     use_image_encoder=False,
