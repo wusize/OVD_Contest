@@ -59,6 +59,7 @@ class CustomDatasetMapper(DatasetMapper):
 
     def read_image(self, file_name, format=None):
         if self.FILE_CLIENT is None:
+            print("=================Initialize Ceph==============", flush=True)
             self.FILE_CLIENT = Client()
         for img_root, ceph_root in self.path_mapping.items():
             if img_root in file_name:
