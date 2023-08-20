@@ -62,7 +62,7 @@ class CustomDatasetMapper(DatasetMapper):
             self.FILE_CLIENT = Client()
         for img_root, ceph_root in self.path_mapping.items():
             if img_root in file_name:
-                file_name.replace(img_root, ceph_root)
+                file_name = file_name.replace(img_root, ceph_root)
                 break
         img_bytes = self.FILE_CLIENT.get(file_name)
         buff = io.BytesIO(img_bytes)
