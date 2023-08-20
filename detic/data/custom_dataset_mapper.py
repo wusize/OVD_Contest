@@ -17,6 +17,9 @@ from detectron2.structures import Keypoints, PolygonMasks, BitMasks
 from fvcore.transforms.transform import TransformList
 from .custom_build_augmentation import build_custom_augmentation
 from .tar_dataset import DiskTarDataset
+import io
+from mmengine.fileio import get, FileClient
+from PIL import Image
 
 __all__ = ["CustomDatasetMapper"]
 
@@ -46,7 +49,24 @@ class CustomDatasetMapper(DatasetMapper):
             print('Using tar dataset')
             self.tar_dataset = DiskTarDataset(tarfile_path, tar_index_dir)
         super().__init__(is_train, **kwargs)
- 
+
+        self.FILE_CLIENT_ARGS = {
+            "backend": "petrel",
+            "path_mapping": {
+                "datasets/ovd360/train": "BJ16:s3://wusize/ovd360/train",
+                "datasets/ovd360/crawled_images_balance": "BJ16:s3://wusize/ovd360/crawled_images_balance",
+            }
+        }
+        self.FILE_CLIENT = None
+
+    def read_image(self, file_name, format=None):
+        if self.FILE_CLIENT is None:
+            self.FILE_CLIENT = FileClient(**self.FILE_CLIENT_ARGS)
+        img_bytes = self.FILE_CLIENT.get(file_name)
+        buff = io.BytesIO(img_bytes)
+        image = Image.open(buff)
+        image = utils._apply_exif_orientation(image)
+        return utils.convert_PIL_to_numpy(image, format)
 
     @classmethod
     def from_config(cls, cfg, is_train: bool = True):
@@ -87,7 +107,7 @@ class CustomDatasetMapper(DatasetMapper):
         dataset_dict = copy.deepcopy(dataset_dict)  # it will be modified by code below
         # USER: Write your own image loading if it's not from a file
         if 'file_name' in dataset_dict:
-            ori_image = utils.read_image(
+            ori_image = self.read_image(
                 dataset_dict["file_name"], format=self.image_format)
         else:
             ori_image, _, _ = self.tar_dataset[dataset_dict["tar_index"]]
@@ -97,7 +117,7 @@ class CustomDatasetMapper(DatasetMapper):
 
         # USER: Remove if you don't do semantic/panoptic segmentation.
         if "sem_seg_file_name" in dataset_dict:
-            sem_seg_gt = utils.read_image(
+            sem_seg_gt = self.read_image(
                 dataset_dict.pop("sem_seg_file_name"), "L").squeeze(2)
         else:
             sem_seg_gt = None
@@ -237,7 +257,7 @@ class DetrDatasetMapper:
             dict: a format that builtin models in detectron2 accept
         """
         dataset_dict = copy.deepcopy(dataset_dict)  # it will be modified by code below
-        image = utils.read_image(dataset_dict["file_name"], format=self.img_format)
+        image = self.read_image(dataset_dict["file_name"], format=self.img_format)
         utils.check_image_size(dataset_dict, image)
 
         if self.crop_gen is None:
