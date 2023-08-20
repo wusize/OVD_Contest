@@ -18,7 +18,7 @@ from fvcore.transforms.transform import TransformList
 from .custom_build_augmentation import build_custom_augmentation
 from .tar_dataset import DiskTarDataset
 import io
-from mmengine.fileio import get, FileClient
+from petrel_client.client import Client
 from PIL import Image
 
 __all__ = ["CustomDatasetMapper"]
@@ -50,18 +50,20 @@ class CustomDatasetMapper(DatasetMapper):
             self.tar_dataset = DiskTarDataset(tarfile_path, tar_index_dir)
         super().__init__(is_train, **kwargs)
 
-        self.FILE_CLIENT_ARGS = {
-            "backend": "petrel",
-            "path_mapping": {
+        self.path_mapping ={
+                "datasets/ovd360/test": "BJ16:s3://wusize/ovd360/test",
                 "datasets/ovd360/train": "BJ16:s3://wusize/ovd360/train",
                 "datasets/ovd360/crawled_images_balance": "BJ16:s3://wusize/ovd360/crawled_images_balance",
             }
-        }
         self.FILE_CLIENT = None
 
     def read_image(self, file_name, format=None):
         if self.FILE_CLIENT is None:
-            self.FILE_CLIENT = FileClient(**self.FILE_CLIENT_ARGS)
+            self.FILE_CLIENT = Client()
+        for img_root, ceph_root in self.path_mapping.items():
+            if img_root in file_name:
+                file_name.replace(img_root, ceph_root)
+                break
         img_bytes = self.FILE_CLIENT.get(file_name)
         buff = io.BytesIO(img_bytes)
         image = Image.open(buff)
