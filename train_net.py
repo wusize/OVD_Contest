@@ -32,7 +32,8 @@ from detectron2.utils.events import (
     JSONWriter,
     TensorboardXWriter,
 )
-from detectron2.data.dataset_mapper import DatasetMapper
+# from detectron2.data.dataset_mapper import DatasetMapper
+from detic.data.custom_dataset_mapper import CephDatasetMapper as DatasetMapper
 from detectron2.data.build import build_detection_train_loader
 from detectron2.utils.logger import setup_logger
 from torch.cuda.amp import GradScaler
