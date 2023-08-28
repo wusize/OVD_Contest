@@ -139,3 +139,5 @@ def add_detic_config(cfg):
     _C.MODEL.CLIP.PROMPT_LEN = 4
     _C.MODEL.CLIP.CLASS_AGNOSTIC = False
     _C.MODEL.CLIP.DETACH = False
+
+    _C.MODEL.ROI_BOX_HEAD.LOSS_CLASSIFICATION = 1.0 # max, softmax, sum

@@ -126,7 +126,6 @@ class DeticFastRCNNOutputLayers(FastRCNNOutputLayers):
             nn.init.normal_(self.prop_score[-1].weight, mean=0, std=0.001)
             nn.init.constant_(self.prop_score[-1].bias, 0)
 
-
     @classmethod
     def from_config(cls, cfg, input_shape):
         ret = super().from_config(cfg, input_shape)
@@ -157,6 +156,7 @@ class DeticFastRCNNOutputLayers(FastRCNNOutputLayers):
                 ret['cls_score'] = PromptClassifier(cfg, input_shape)
             else:
                 ret['cls_score'] = ZeroShotClassifier(cfg, input_shape)
+        cls.cfg = cfg
         return ret
 
     def losses(self, predictions, proposals, \
@@ -192,7 +192,7 @@ class DeticFastRCNNOutputLayers(FastRCNNOutputLayers):
         else:
             loss_cls = self.softmax_cross_entropy_loss(scores, gt_classes)
         return {
-            "loss_cls": loss_cls, 
+            "loss_cls": loss_cls * self.cfg.MODEL.ROI_BOX_HEAD.LOSS_CLASSIFICATION,
             "loss_box_reg": self.box_reg_loss(
                 proposal_boxes, gt_boxes, proposal_deltas, gt_classes, 
                 num_classes=num_classes)
